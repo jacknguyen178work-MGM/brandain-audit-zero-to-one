@@ -1,0 +1,43 @@
+// api/submit.js
+
+export default async function handler(req, res) {
+  // 1. Cấu hình CORS: Cho phép LadiPage (hoặc bất kỳ domain nào) gọi API này
+  res.setHeader('Access-Control-Allow-Credentials', true);
+  res.setHeader('Access-Control-Allow-Origin', 'https://khambrand.brandain.vn'); // Bạn có thể thay '*' bằng 'https://khambrand.brandain.vn' để khóa cứng
+  res.setHeader('Access-Control-Allow-Methods', 'OPTIONS,POST');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  // Xử lý request "thăm dò" (Preflight) của trình duyệt
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
+  // Chỉ chấp nhận method POST
+  if (req.method === 'POST') {
+    try {
+      const payload = req.body;
+
+      // 2. CHÈN BÍ MẬT TẠI BACKEND (Front-end tuyệt đối không biết dòng này)
+      payload.secret_token = process.env.SECRET_TOKEN; 
+      
+      // 3. GỌI SANG GOOGLE APPS SCRIPT
+      const gasUrl = process.env.GAS_WEBHOOK_URL;
+      
+      const gasResponse = await fetch(gasUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      // 4. Trả kết quả về cho Front-end
+      const data = await gasResponse.json();
+      return res.status(200).json(data);
+      
+    } catch (error) {
+      console.error("Vercel API Error:", error);
+      return res.status(500).json({ error: 'Internal Server Error' });
+    }
+  } else {
+    return res.status(405).json({ error: 'Method Not Allowed' });
+  }
+}
